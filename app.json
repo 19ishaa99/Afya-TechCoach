@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Afya TechCoach",
+    "slug": "afya-techcoach",
+    "version": "1.0.0",
+    "sdkVersion": "50.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "093d3430-12c2-46f0-80d0-f58cdf2be1f7"
+      }
+    },
+    "android": {
+      "package": "com.aisha_khamis.afyatechcoach"
+    }
+  }
+}
