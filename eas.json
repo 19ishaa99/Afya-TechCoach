@@ -9,7 +9,13 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "image": "ubuntu-22.04-android-ndk-r25b-node-20",
+        "env": {
+          "EXPO_NO_YARN": "1"
+        }
+      }
     },
     "production": {
       "autoIncrement": true
