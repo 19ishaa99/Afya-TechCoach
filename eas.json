@@ -11,7 +11,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "image": "ubuntu-22.04-android-ndk-r25b-node-20",
+        "buildType": "apk",
+        "image": "ubuntu-22.04-jdk-17-ndk-r25b",
         "env": {
           "EXPO_NO_YARN": "1"
         }

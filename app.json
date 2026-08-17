@@ -17,7 +17,8 @@
       "package": "com.aisha_khamis.afyatechcoach"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-splash-screen"
     ]
   }
 }
