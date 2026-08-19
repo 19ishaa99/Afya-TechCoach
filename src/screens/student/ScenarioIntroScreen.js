@@ -3,15 +3,26 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { COLORS, SIZES } from '../../constants';
 import SimulationProgress from '../../components/SimulationProgress';
 import { useSimulation } from '../../context/SimulationContext';
+import { scenarios } from '../../constants/mockData';
 
 const StartSimulationScreen = ({ route, navigation }) => {
-  const { scenario } = route.params;
+  const scenario = route.params?.scenario || scenarios.find(item => item.id === route.params?.caseId);
   const { startCase } = useSimulation();
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const onBegin = () => {
-    startCase(scenario);
-    navigation.navigate('PatientScenario');
+  const onBegin = async () => {
+    if (loading) return;
+    setLoading(true); setError('');
+    try {
+      const attempt = await startCase(scenario);
+      navigation.navigate('PatientScenario', { simulationId: attempt.id });
+    } catch (_) {
+      setError('Unable to start this simulation. Check your connection and sign-in, then try again.');
+    } finally { setLoading(false); }
   };
+
+  if (!scenario) return <View style={styles.missing}><Text style={styles.title}>This clinical case is no longer available.</Text><TouchableOpacity style={styles.startButton} onPress={() => navigation.replace('StudentTabs', { screen: 'SimulationList' })}><Text style={styles.startText}>Return to Cases</Text></TouchableOpacity></View>;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -30,8 +41,9 @@ const StartSimulationScreen = ({ route, navigation }) => {
         <Text style={styles.sectionTitle}>Overview</Text>
         <Text style={styles.description}>{scenario.description}</Text>
       </View>
-      <TouchableOpacity style={styles.startButton} onPress={onBegin}>
-        <Text style={styles.startText}>Begin Clinical Case</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <TouchableOpacity disabled={loading} style={[styles.startButton, loading && { opacity: 0.6 }]} onPress={onBegin}>
+        <Text style={styles.startText}>{loading ? 'Starting…' : 'Begin Clinical Case'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -67,6 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   startText: { color: COLORS.white, fontWeight: '700' }
+  ,error: { color: COLORS.error, marginBottom: 12 }, missing: { flex: 1, justifyContent: 'center', padding: SIZES.padding, backgroundColor: COLORS.background }
 });
 
 export default StartSimulationScreen;

@@ -1,0 +1,1 @@
+"""Afya TechCoach backend."""

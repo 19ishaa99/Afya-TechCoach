@@ -1,91 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import CustomInput from '../../components/CustomInput';
-import PasswordInput from '../../components/PasswordInput';
-import PrimaryButton from '../../components/PrimaryButton';
-import Divider from '../../components/Divider';
-import { COLORS } from '../../constants';
-import { authenticateUser } from '../../constants/authStore';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { AuthCard, AuthLayout, BrandBlock, Checkbox, FormInput, InlineError, PasswordInput, PrimaryButton } from '../../components/auth/AuthComponents';
+import { COLORS, SPACING } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
-const LoginScreen = ({ navigation }) => {
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function LoginScreen({ navigation }) {
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const validate = () => {
-    if (!email.includes('@')) {
-      Alert.alert('Validation', 'Please enter a valid email');
-      return false;
-    }
-    if (password.length < 6) {
-      Alert.alert('Validation', 'Password must be at least 6 characters');
-      return false;
-    }
-    return true;
+  const submit = async () => {
+    if (loading) return;
+    const next = {};
+    if (!email.trim()) next.email = 'Please enter your email address.';
+    else if (!emailPattern.test(email.trim())) next.email = 'Please enter a valid email address.';
+    if (!password) next.password = 'Please enter your password.';
+    setErrors(next); setMessage('');
+    if (Object.keys(next).length) return;
+    setLoading(true);
+    try {
+      await signIn({ email: email.trim().toLowerCase(), password }, remember);
+    } catch (error) {
+      setMessage(error.status === 401 ? 'The email or password is incorrect.' : error.status === 422 ? 'Please check your email address and password.' : 'Unable to connect to the server. Make sure the backend is running.');
+    } finally { setLoading(false); }
   };
 
-  const onLogin = () => {
-    if (!validate()) return;
-
-    const user = authenticateUser(email, password);
-    if (!user) {
-      Alert.alert('Login Failed', 'Email or password is incorrect.');
-      return;
-    }
-
-    const rootNavigation = navigation.getParent();
-    if (rootNavigation) {
-      rootNavigation.replace('StudentStack');
-    } else {
-      navigation.replace('StudentStack');
-    }
-  };
-
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Login</Text>
-        <CustomInput label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" />
-        <PasswordInput value={password} onChangeText={setPassword} placeholder="Password" />
-
-        <View style={styles.row}>
-          <TouchableOpacity onPress={() => setRemember(r => !r)} style={styles.checkbox}>
-            <View style={[styles.box, remember && styles.boxChecked]} />
-            <Text style={styles.remember}>Remember Me</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={styles.forgot}>Forgot Password?</Text>
-          </TouchableOpacity>
-        </View>
-
-        <PrimaryButton title="Login" onPress={onLogin} style={{ marginTop: 20 }} />
-
-        <Divider text="OR" />
-
-        <PrimaryButton title="Sign in with Google" onPress={() => Alert.alert('Google Sign-in (UI only)')} style={{ backgroundColor: COLORS.secondary }} />
-
-        <View style={styles.footer}>
-          <Text>Don't have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.link}> Register</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
-  );
-};
+  return <AuthLayout><AuthCard circular>
+    <BrandBlock compact />
+    <Text style={styles.title}>Welcome Back</Text>
+    <Text style={styles.subtitle}>Continue building confident clinical decisions.</Text>
+    <InlineError message={message} />
+    <FormInput label="Email address" icon="mail-outline" required value={email} onChangeText={value => { setEmail(value); setErrors(current => ({ ...current, email: '' })); }} error={errors.email} placeholder="student@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" returnKeyType="next" />
+    <PasswordInput label="Password" required value={password} onChangeText={value => { setPassword(value); setErrors(current => ({ ...current, password: '' })); }} error={errors.password} placeholder="Enter your password" autoComplete="current-password" returnKeyType="done" onSubmitEditing={submit} />
+    <View style={styles.options}>
+      <Checkbox checked={remember} onPress={() => setRemember(value => !value)}>Remember me</Checkbox>
+      <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}><Text style={styles.link}>Forgot password?</Text></TouchableOpacity>
+    </View>
+    <PrimaryButton title="Login" onPress={submit} loading={loading} />
+    <View style={styles.footer}><Text style={styles.footerText}>Don’t have an account? </Text><TouchableOpacity onPress={() => navigation.navigate('Register')}><Text style={styles.linkStrong}>Create Account</Text></TouchableOpacity></View>
+    <View style={styles.secure}><MaterialIcons name="verified-user" size={15} color={COLORS.secondary} /><Text style={styles.secureText}>Your learning data is protected</Text></View>
+  </AuthCard></AuthLayout>;
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: 20 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 12, color: COLORS.text },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  checkbox: { flexDirection: 'row', alignItems: 'center' },
-  box: { width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#E0E0E0', marginRight: 8 },
-  boxChecked: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  remember: { color: COLORS.muted },
-  forgot: { color: COLORS.secondary },
-  footer: { flexDirection: 'row', marginTop: 18 }
+  title: { color: COLORS.navy, fontSize: 28, fontWeight: '800', textAlign: 'center' }, subtitle: { color: COLORS.muted, textAlign: 'center', lineHeight: 20, marginTop: SPACING.xs, marginBottom: SPACING.xl },
+  options: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sm }, link: { color: COLORS.primary, fontWeight: '600' }, footer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: SPACING.xl },
+  footerText: { color: COLORS.muted }, linkStrong: { color: COLORS.primary, fontWeight: '800' }, secure: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: SPACING.xs, marginTop: SPACING.lg }, secureText: { color: COLORS.muted, fontSize: 12 }
 });
-
-export default LoginScreen;

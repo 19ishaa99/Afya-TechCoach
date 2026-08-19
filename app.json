@@ -3,6 +3,8 @@
     "name": "Afya TechCoach",
     "slug": "afya-techcoach",
     "version": "1.0.0",
+    "scheme": "afyatechcoach",
+    "icon": "./assets/afya-app-icon.png",
     "platforms": [
       "ios",
       "android",
@@ -14,7 +16,18 @@
       }
     },
     "android": {
-      "package": "com.aisha_khamis.afyatechcoach"
+      "package": "com.aisha_khamis.afyatechcoach",
+      "versionCode": 1,
+      "permissions": [],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/afya-app-icon.png",
+        "backgroundColor": "#087F8C"
+      }
+    },
+    "splash": {
+      "image": "./assets/afya-app-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4F8FA"
     },
     "plugins": [
       "expo-font",

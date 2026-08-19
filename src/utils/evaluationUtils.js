@@ -21,7 +21,7 @@ const evaluateDiagnosis = (studentAnswer, acceptedDiagnoses) => {
 const evaluateDifferential = (studentDifferentials, expectedDifferentials) => {
   const normalizedExpected = expectedDifferentials.map(normalizeAnswer);
   const normalizedStudent = studentDifferentials
-    .map(item => normalizeAnswer(item.value))
+    .map(item => normalizeAnswer(typeof item === 'string' ? item : item?.value || ''))
     .filter(Boolean);
 
   const matched = normalizedStudent.filter(item => normalizedExpected.includes(item));
@@ -36,6 +36,29 @@ const evaluateDifferential = (studentDifferentials, expectedDifferentials) => {
     feedback: `You included ${matched.length} of ${normalizedExpected.length} important differential diagnoses.`
   };
 };
+
+const evaluateInterpretation = (studentInterpretation, interpretationPoints = []) => {
+  const points = Array.isArray(interpretationPoints) ? interpretationPoints : [];
+  const normalized = normalizeAnswer(studentInterpretation || '');
+  const matched = points.filter(point => {
+    const value = typeof point === 'string' ? point : point?.keyword || point?.explanation || '';
+    return value && normalized.includes(normalizeAnswer(value));
+  });
+  const score = points.length
+    ? Math.round((matched.length / points.length) * 100)
+    : normalized.length >= 20 ? 100 : normalized.length ? 50 : 0;
+  return {
+    score: Math.min(100, score),
+    matched,
+    missed: points.filter(point => !matched.includes(point)),
+    feedback: normalized
+      ? 'Your interpretation was assessed against the approved investigation findings.'
+      : 'No investigation interpretation was provided.'
+  };
+};
+
+const evaluateInitialDiagnosis = (studentAnswer, acceptedDiagnoses) =>
+  evaluateDiagnosis(studentAnswer, acceptedDiagnoses);
 
 const evaluateInvestigations = (selectedInvestigations, caseEvaluation) => {
   const selected = selectedInvestigations.map(normalizeAnswer);
@@ -64,16 +87,19 @@ const evaluateInvestigations = (selectedInvestigations, caseEvaluation) => {
 };
 
 const evaluateReasoning = (studentReasoning, reasoningPoints) => {
+  const points = Array.isArray(reasoningPoints)
+    ? reasoningPoints
+    : reasoningPoints?.reasoningPoints || [];
   const normalized = normalizeAnswer(studentReasoning);
-  const identified = reasoningPoints.filter(point => normalized.includes(normalizeAnswer(point.keyword)));
-  const missed = reasoningPoints.filter(point => !normalized.includes(normalizeAnswer(point.keyword)));
-  const score = Math.min(100, Math.round((identified.length / Math.max(reasoningPoints.length, 1)) * 100));
+  const identified = points.filter(point => normalized.includes(normalizeAnswer(point.keyword)));
+  const missed = points.filter(point => !normalized.includes(normalizeAnswer(point.keyword)));
+  const score = Math.min(100, Math.round((identified.length / Math.max(points.length, 1)) * 100));
 
   return {
     score,
     identified,
     missed,
-    feedback: `You addressed ${identified.length} of ${reasoningPoints.length} key reasoning points.`
+    feedback: `You addressed ${identified.length} of ${points.length} key reasoning points.`
   };
 };
 
@@ -108,25 +134,23 @@ const evaluateExamination = (examinationsRequested, caseEvaluation) => {
 
 const calculateOverallScore = scores => {
   const weights = {
-    diagnosis: 0.25,
-    reasoning: 0.2,
-    investigations: 0.15,
-    investigationInterpretation: 0.15,
+    history: 0.1,
+    examination: 0.1,
+    initialDiagnosis: 0.05,
     differential: 0.15,
-    history: 0.05,
-    examination: 0.05
+    investigations: 0.15,
+    interpretation: 0.1,
+    diagnosis: 0.15,
+    reasoning: 0.2
   };
-
-  const weightedScore =
-    (scores.diagnosis * weights.diagnosis || 0) +
-    (scores.reasoning * weights.reasoning || 0) +
-    (scores.investigations * weights.investigations || 0) +
-    (scores.interpretation * weights.investigationInterpretation || 0) +
-    (scores.differential * weights.differential || 0) +
-    (scores.history * weights.history || 0) +
-    (scores.examination * weights.examination || 0);
-
-  return Math.round(weightedScore);
+  const numericScore = value => {
+    const score = typeof value === 'number' ? value : value?.score;
+    return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0;
+  };
+  return Math.round(Object.entries(weights).reduce(
+    (total, [category, weight]) => total + numericScore(scores[category]) * weight,
+    0
+  ));
 };
 
 const generateFeedback = evaluation => {
@@ -149,11 +173,13 @@ const generateFeedback = evaluation => {
 export {
   normalizeAnswer,
   evaluateDiagnosis,
+  evaluateInitialDiagnosis,
   evaluateDifferential,
   evaluateInvestigations,
   evaluateReasoning,
   evaluateHistory,
   evaluateExamination,
+  evaluateInterpretation,
   calculateOverallScore,
   generateFeedback
 };

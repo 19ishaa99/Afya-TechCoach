@@ -5,6 +5,7 @@ import InvestigationOption from '../../components/InvestigationOption';
 import PrimaryButton from '../../components/PrimaryButton';
 import SimulationProgress from '../../components/SimulationProgress';
 import { useSimulation } from '../../context/SimulationContext';
+import { caseApi } from '../../api/caseApi';
 
 const InvestigationScreen = ({ navigation }) => {
   const {
@@ -14,20 +15,22 @@ const InvestigationScreen = ({ navigation }) => {
   } = useSimulation();
 
   const [invRequest, setInvRequest] = useState('');
+  const [adding, setAdding] = useState(false);
 
-  const addInvestigationByText = () => {
+  const addInvestigationByText = async () => {
     if (!invRequest.trim()) {
       Alert.alert('Investigation', 'Type an investigation name or request');
       return;
     }
-    const { matchInvestigationRequest } = require('../../utils/matchingUtils');
-    const res = matchInvestigationRequest(invRequest, selectedCase.investigations);
-    if (!res) {
-      Alert.alert('No match', 'Could not match that investigation. Try another name.');
-      return;
-    }
-    if (!selectedInvestigations.includes(res.id)) setSelectedInvestigations(prev => [...prev, res.id]);
-    setInvRequest('');
+    if (adding) return;
+    setAdding(true);
+    try {
+      const res = await caseApi.requestInvestigation(selectedCase.id, invRequest.trim());
+      if (!selectedInvestigations.includes(res.id)) setSelectedInvestigations(prev => [...prev, res.id]);
+      setInvRequest('');
+    } catch (error) {
+      Alert.alert(error.status === 404 ? 'Investigation not recognized' : 'Unable to add investigation', error.status === 404 ? 'Try a standard investigation name or select it from the list.' : 'Check your connection and try again.');
+    } finally { setAdding(false); }
   };
 
   if (!selectedCase) {
@@ -58,7 +61,7 @@ const InvestigationScreen = ({ navigation }) => {
 
       <View style={styles.askRow}>
         <TextInput placeholder="Type an investigation (e.g., 'CBC', 'Chest X-ray')" value={invRequest} onChangeText={setInvRequest} style={styles.input} />
-        <TouchableOpacity onPress={addInvestigationByText} style={styles.addBtn}><Text style={{ color: '#fff' }}>Add</Text></TouchableOpacity>
+        <TouchableOpacity disabled={adding} onPress={addInvestigationByText} style={[styles.addBtn, adding && { opacity: 0.6 }]}><Text style={{ color: '#fff' }}>{adding ? 'Adding…' : 'Add'}</Text></TouchableOpacity>
       </View>
 
       {available.map(investigation => (

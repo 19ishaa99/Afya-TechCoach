@@ -1,0 +1,10 @@
+.git
+.env
+.expo
+.venv
+backend/.env
+backend/.venv
+node_modules
+web-build
+*.db
+*.bundle

@@ -3,34 +3,30 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, TextInput 
 import { COLORS, SIZES } from '../../constants';
 import SimulationProgress from '../../components/SimulationProgress';
 import { useSimulation } from '../../context/SimulationContext';
+import { caseApi } from '../../api/caseApi';
 
 const ExaminationScreen = ({ navigation }) => {
   const { selectedCase, examinationsRequested, setExaminationsRequested, addConversationEntry, conversation } = useSimulation();
   const [requestText, setRequestText] = useState('');
+  const [requesting, setRequesting] = useState(false);
 
   if (!selectedCase) return null;
 
-  const requestExamination = () => {
+  const requestExamination = async () => {
     if (!requestText.trim()) {
       Alert.alert('Request', 'Please type what you would like to examine.');
       return;
     }
-    addConversationEntry({ sender: 'Student', text: requestText });
-    const { matchExaminationRequest } = require('../../utils/matchingUtils');
-    const res = matchExaminationRequest(requestText, selectedCase.examination);
-    if (!res) {
-      addConversationEntry({ sender: 'Patient', text: 'Could you be more specific about which examination you mean?' });
+    if (requesting) return;
+    setRequesting(true); addConversationEntry({ sender: 'Student', text: requestText });
+    try {
+      const res = await caseApi.requestExamination(selectedCase.id, requestText.trim());
+      if (examinationsRequested.includes(res.id)) addConversationEntry({ sender: 'Examiner', text: 'Already requested: ' + res.findings });
+      else { setExaminationsRequested(prev => [...prev, res.id]); addConversationEntry({ sender: 'Examiner', text: res.findings }); }
       setRequestText('');
-      return;
-    }
-    // if already requested, remind
-    if (examinationsRequested.includes(res.id)) {
-      addConversationEntry({ sender: 'Patient', text: 'I mentioned earlier: ' + res.findings });
-    } else {
-      setExaminationsRequested(prev => [...prev, res.id]);
-      addConversationEntry({ sender: 'Patient', text: res.findings });
-    }
-    setRequestText('');
+    } catch (error) {
+      addConversationEntry({ sender: 'Tutor', text: error.status === 404 ? 'Could you be more specific about which examination you mean?' : 'Unable to retrieve examination findings. Your request remains saved.' });
+    } finally { setRequesting(false); }
   };
 
   const handleContinue = () => {
@@ -45,8 +41,8 @@ const ExaminationScreen = ({ navigation }) => {
 
       <View style={styles.askBox}>
         <TextInput placeholder="Type examination request (e.g., 'Examine the chest')" value={requestText} onChangeText={setRequestText} style={styles.input} />
-        <TouchableOpacity onPress={requestExamination} style={styles.askBtn}>
-          <Text style={{ color: '#fff' }}>Request Examination</Text>
+        <TouchableOpacity disabled={requesting} onPress={requestExamination} style={[styles.askBtn, requesting && { opacity: 0.6 }]}>
+          <Text style={{ color: '#fff' }}>{requesting ? 'Requesting…' : 'Request Examination'}</Text>
         </TouchableOpacity>
       </View>
 

@@ -16,3 +16,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 # Keep package-lock.json tracked for deterministic npm installs
+
+# secrets and local backend state
+.env
+.env.*
+!.env.example
+backend/.env
+*.db
+__pycache__/
+.pytest_cache/
+.venv/
+
+# local safety archives
+*.bundle

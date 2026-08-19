@@ -1,47 +1,17 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES } from '../../constants';
-
-const historyItems = [
-  { title: 'Acute Appendicitis', specialty: 'Emergency Medicine', score: '85%', date: 'Aug 8, 2026', status: 'Completed' },
-  { title: 'Pediatric Asthma', specialty: 'Pediatrics', score: '78%', date: 'Aug 5, 2026', status: 'Completed' },
-  { title: 'Gestational Hypertension', specialty: 'Obstetrics & Gynecology', score: '81%', date: 'Aug 2, 2026', status: 'Completed' }
-];
-
-const HistoryScreen = () => {
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>History</Text>
-      {historyItems.map(item => (
-        <View key={item.title} style={styles.card}>
-          <View style={styles.row}><Text style={styles.itemTitle}>{item.title}</Text><Text style={styles.status}>{item.status}</Text></View>
-          <Text style={styles.detail}>{item.specialty}</Text>
-          <View style={styles.row}><Text style={styles.detail}>Score: {item.score}</Text><Text style={styles.detail}>{item.date}</Text></View>
-        </View>
-      ))}
-    </ScrollView>
-  );
+import { progressApi } from '../../api/progressApi';
+const titleCase = value => value.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+const CaseHistoryScreen = ({ navigation }) => {
+  const [items, setItems] = useState(null); const [error, setError] = useState('');
+  const load = useCallback(async () => { setError(''); try { setItems(await progressApi.history()); } catch (e) { setError(e.message); } }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+  const open = item => { if (item.status === 'completed') navigation.navigate('ClinicalFeedback', { simulationId: item.simulation_id }); else if (item.status === 'in_progress') navigation.navigate(item.current_step, { simulationId: item.simulation_id }); else if (item.status === 'evaluation_failed') navigation.navigate('ReviewAnswers', { simulationId: item.simulation_id }); };
+  if (!items && !error) return <View style={styles.center}><ActivityIndicator color={COLORS.primary} /></View>;
+  if (error && !items) return <View style={styles.center}><Text style={styles.error}>{error}</Text><TouchableOpacity style={styles.button} onPress={load}><Text style={styles.buttonText}>Try again</Text></TouchableOpacity></View>;
+  return <ScrollView style={styles.container} contentContainerStyle={styles.content}><Text style={styles.title}>History</Text>{error ? <Text style={styles.error}>{error}</Text> : null}{!items?.length ? <View style={styles.empty}><Text style={styles.emptyTitle}>No clinical case history yet</Text><Text style={styles.muted}>Start your first case to begin building your learning record.</Text></View> : items.map(item => <View key={item.simulation_id} style={styles.card}><View style={styles.top}><View style={styles.heading}><Text style={styles.itemTitle}>{item.case_title}</Text><Text style={styles.muted}>{item.specialty || 'Clinical case'} • Attempt {item.attempt_number}</Text></View><Text style={styles.status}>{titleCase(item.status)}</Text></View><Text style={styles.date}>Started {new Date(item.started_at).toLocaleString()}</Text>{item.submitted_at ? <Text style={styles.date}>Submitted {new Date(item.submitted_at).toLocaleString()}</Text> : null}{item.completed_at ? <Text style={styles.date}>Completed {new Date(item.completed_at).toLocaleString()}</Text> : null}{item.overall_score != null ? <Text style={styles.score}>Score: {item.overall_score}%</Text> : <Text style={styles.noScore}>{['submitted', 'evaluating', 'evaluation_failed'].includes(item.status) ? 'Score pending evaluation' : 'No score yet'}</Text>}{!['submitted', 'evaluating'].includes(item.status) ? <TouchableOpacity style={styles.action} onPress={() => open(item)}><Text style={styles.actionText}>{item.status === 'completed' ? 'View feedback' : item.status === 'evaluation_failed' ? 'Retry evaluation' : 'Continue case'}</Text></TouchableOpacity> : null}</View>)}</ScrollView>;
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: SIZES.padding },
-  title: { fontSize: 24, fontWeight: '700', color: COLORS.text, marginBottom: 18 },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3
-  },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  itemTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-  status: { color: COLORS.secondary, fontWeight: '700' },
-  detail: { color: COLORS.muted }
-});
-
-export default HistoryScreen;
+const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: COLORS.background }, content: { padding: SIZES.padding, paddingBottom: 30 }, center: { flex: 1, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center', padding: 28 }, title: { fontSize: 25, fontWeight: '700', color: COLORS.text, marginBottom: 18 }, empty: { backgroundColor: COLORS.card, borderRadius: SIZES.radius, padding: 24, alignItems: 'center' }, emptyTitle: { color: COLORS.text, fontSize: 19, fontWeight: '700', marginBottom: 7 }, muted: { color: COLORS.muted }, card: { backgroundColor: COLORS.card, borderRadius: SIZES.radius, padding: 17, marginBottom: 12 }, top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }, heading: { flex: 1 }, itemTitle: { fontSize: 17, fontWeight: '700', color: COLORS.text, marginBottom: 5 }, status: { color: COLORS.secondary, fontSize: 12, fontWeight: '800' }, date: { color: COLORS.muted, marginTop: 8, fontSize: 13 }, score: { color: COLORS.primary, fontWeight: '800', marginTop: 9 }, noScore: { color: COLORS.muted, fontStyle: 'italic', marginTop: 9 }, action: { marginTop: 12, borderWidth: 1, borderColor: COLORS.primary, borderRadius: 11, padding: 10, alignItems: 'center' }, actionText: { color: COLORS.primary, fontWeight: '700' }, error: { color: COLORS.error, textAlign: 'center', marginBottom: 12 }, button: { backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 }, buttonText: { color: COLORS.white, fontWeight: '700' } });
+export default CaseHistoryScreen;

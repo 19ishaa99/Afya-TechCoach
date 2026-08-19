@@ -1,32 +1,17 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, SIZES } from '../../constants';
-import ScoreCard from '../../components/student/ScoreCard';
 
 const SimulationResultScreen = ({ route, navigation }) => {
-  const { scenario, score = 0, total = scenario.questions.length } = route.params;
-  const incorrect = total - score;
-  const percent = Math.round((score / total) * 100);
-  const timeTaken = scenario.estimatedTime;
+  const { simulationId } = route.params || {};
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Simulation Complete</Text>
-      <View style={styles.summaryRow}>
-        <ScoreCard label="Score" value={`${score}%`} />
-        <ScoreCard label="Time" value={timeTaken} />
-      </View>
+      <Text style={styles.title}>Simulation submission</Text>
       <View style={styles.detailsCard}>
-        <Text style={styles.detailText}>Correct Answers: {score}</Text>
-        <Text style={styles.detailText}>Incorrect Answers: {incorrect}</Text>
-        <Text style={styles.detailText}>Percentage: {percent}%</Text>
+        <Text style={styles.detailText}>No score or feedback is calculated on this legacy screen. Evaluated results are loaded from your saved clinical attempt.</Text>
       </View>
-      <View style={styles.feedbackCard}>
-        <Text style={styles.sectionTitle}>Clinical Feedback</Text>
-        <Text style={styles.feedbackText}>You completed a focused clinical case review and demonstrated practical reasoning across diagnosis and management.</Text>
-        <Text style={styles.feedbackText}>Use the feedback below to strengthen your case interpretation and next-step selection.</Text>
-        <Text style={styles.feedbackText}>{scenario.recommendedAfter}</Text>
-      </View>
+      {simulationId ? <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.replace('ClinicalFeedback', { simulationId })}><Text style={styles.primaryText}>Load evaluated feedback</Text></TouchableOpacity> : null}
       <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('SimulationList')}>
         <Text style={styles.primaryText}>Try Another Simulation</Text>
       </TouchableOpacity>

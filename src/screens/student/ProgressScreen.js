@@ -1,77 +1,18 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES } from '../../constants';
-
-const specialties = [
-  { label: 'Internal Medicine', value: '82%' },
-  { label: 'Pediatrics', value: '74%' },
-  { label: 'Surgery', value: '68%' },
-  { label: 'Emergency Medicine', value: '91%' }
-];
-
+import { progressApi } from '../../api/progressApi';
+const label = key => key.replace(/_/g, ' ').replace(/\b\w/g, value => value.toUpperCase());
 const ProgressScreen = () => {
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>My Progress</Text>
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>Overall Score</Text>
-        <Text style={styles.summaryValue}>86%</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}><Text style={styles.statValue}>12</Text><Text style={styles.statLabel}>Simulations</Text></View>
-          <View style={styles.statItem}><Text style={styles.statValue}>84%</Text><Text style={styles.statLabel}>Average</Text></View>
-          <View style={styles.statItem}><Text style={styles.statValue}>5d</Text><Text style={styles.statLabel}>Streak</Text></View>
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>Specialty Strengths</Text>
-      {specialties.map(item => (
-        <View key={item.label} style={styles.specCard}>
-          <Text style={styles.specLabel}>{item.label}</Text>
-          <Text style={styles.specValue}>{item.value}</Text>
-        </View>
-      ))}
-    </ScrollView>
-  );
+  const [data, setData] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  const load = useCallback(async () => { setLoading(true); setError(''); try { setData(await progressApi.dashboard()); } catch (e) { setError(e.message); } finally { setLoading(false); } }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+  if (loading && !data) return <View style={styles.center}><ActivityIndicator color={COLORS.primary} /></View>;
+  if (error && !data) return <View style={styles.center}><Text style={styles.error}>{error}</Text><TouchableOpacity style={styles.button} onPress={load}><Text style={styles.buttonText}>Try again</Text></TouchableOpacity></View>;
+  if (!data?.has_completed_evaluation) return <View style={styles.center}><Text style={styles.title}>My Progress</Text><Text style={styles.emptyTitle}>No evaluated cases yet</Text><Text style={styles.emptyText}>Complete and submit a clinical case. Your performance metrics will appear only after the evaluation is finished.</Text></View>;
+  const summary = data.summary;
+  return <ScrollView style={styles.container} contentContainerStyle={styles.content}><Text style={styles.title}>My Progress</Text>{error ? <Text style={styles.error}>{error}</Text> : null}<View style={styles.summary}><Text style={styles.kicker}>AVERAGE SCORE</Text><Text style={styles.average}>{summary.average_score}%</Text><View style={styles.stats}><View><Text style={styles.stat}>{summary.cases_completed}</Text><Text style={styles.muted}>Completed</Text></View><View><Text style={styles.stat}>{summary.current_streak_days}d</Text><Text style={styles.muted}>Streak</Text></View><View><Text style={styles.stat}>{summary.total_learning_minutes}m</Text><Text style={styles.muted}>Learning</Text></View></View></View>{data.specialty_progress.length ? <><Text style={styles.section}>Specialty performance</Text>{data.specialty_progress.map(item => <View key={item.specialty} style={styles.row}><View><Text style={styles.rowTitle}>{item.specialty}</Text><Text style={styles.muted}>{item.completed} evaluated {item.completed === 1 ? 'case' : 'cases'}</Text></View><Text style={styles.rowScore}>{item.average_score}%</Text></View>)}</> : null}{Object.keys(data.category_averages).length ? <><Text style={styles.section}>Clinical reasoning</Text>{Object.entries(data.category_averages).map(([key, value]) => <View key={key} style={styles.row}><Text style={styles.rowTitle}>{label(key)}</Text><Text style={styles.rowScore}>{value}%</Text></View>)}</> : null}{data.latest_feedback ? <View style={styles.feedback}><Text style={styles.section}>Latest study focus</Text>{data.latest_feedback.study_focus.map((item, index) => <Text key={`${item}-${index}`} style={styles.bullet}>• {item}</Text>)}</View> : null}</ScrollView>;
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: SIZES.padding },
-  title: { fontSize: 24, fontWeight: '700', color: COLORS.text, marginBottom: 18 },
-  summaryCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 4
-  },
-  summaryLabel: { color: COLORS.muted, marginBottom: 8 },
-  summaryValue: { fontSize: 36, fontWeight: '700', color: COLORS.primary, marginBottom: 16 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 20, fontWeight: '700', color: COLORS.text },
-  statLabel: { color: COLORS.muted },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
-  specCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3
-  },
-  specLabel: { color: COLORS.text, fontWeight: '700' },
-  specValue: { color: COLORS.secondary, fontWeight: '700' }
-});
-
+const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: COLORS.background }, content: { padding: SIZES.padding, paddingBottom: 30 }, center: { flex: 1, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center', padding: 28 }, title: { fontSize: 25, fontWeight: '700', color: COLORS.text, marginBottom: 18 }, emptyTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginBottom: 8 }, emptyText: { color: COLORS.muted, textAlign: 'center', lineHeight: 22 }, summary: { backgroundColor: COLORS.card, borderRadius: SIZES.radius, padding: 20, marginBottom: 20 }, kicker: { color: COLORS.muted, fontSize: 12, fontWeight: '700' }, average: { fontSize: 40, fontWeight: '800', color: COLORS.primary, marginVertical: 8 }, stats: { flexDirection: 'row', justifyContent: 'space-between' }, stat: { color: COLORS.text, fontSize: 19, fontWeight: '700' }, muted: { color: COLORS.muted }, section: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginTop: 8, marginBottom: 10 }, row: { backgroundColor: COLORS.card, borderRadius: 14, padding: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, rowTitle: { color: COLORS.text, fontWeight: '700' }, rowScore: { color: COLORS.primary, fontSize: 18, fontWeight: '800' }, feedback: { marginTop: 8 }, bullet: { color: COLORS.text, lineHeight: 22, marginBottom: 5 }, error: { color: COLORS.error, textAlign: 'center', marginBottom: 10 }, button: { backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 }, buttonText: { color: COLORS.white, fontWeight: '700' } });
 export default ProgressScreen;

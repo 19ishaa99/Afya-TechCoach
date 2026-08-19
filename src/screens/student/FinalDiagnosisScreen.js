@@ -6,8 +6,6 @@ import PrimaryButton from '../../components/PrimaryButton';
 import SimulationProgress from '../../components/SimulationProgress';
 import { useSimulation } from '../../context/SimulationContext';
 
-const normalize = value => value.trim().toLowerCase().replace(/[.,;!]/g, '');
-
 const FinalDiagnosisScreen = ({ navigation }) => {
   const {
     finalDiagnosis,
@@ -16,11 +14,11 @@ const FinalDiagnosisScreen = ({ navigation }) => {
     setFinalReasoning,
     selectedCase,
     setSimulationEndTime,
-    addCompletedSimulation,
     historySectionsViewed,
     examinationsRequested,
     selectedInvestigations,
     investigationInterpretation,
+    initialDiagnosis,
     initialReasoning,
     differentialDiagnoses
   } = useSimulation();
@@ -38,57 +36,7 @@ const FinalDiagnosisScreen = ({ navigation }) => {
       Alert.alert('Explain your reasoning', 'Please describe the clinical reasoning for your final diagnosis.');
       return;
     }
-    setSimulationEndTime(Date.now());
-
-    // Evaluate and store completed simulation
-    try {
-      const evalUtils = require('../../utils/evaluationUtils');
-      const {
-        evaluateDiagnosis,
-        evaluateDifferential,
-        evaluateInvestigations,
-        evaluateReasoning,
-        evaluateHistory,
-        evaluateExamination,
-        calculateOverallScore,
-        generateFeedback
-      } = evalUtils;
-
-      const scores = {};
-      scores.diagnosis = evaluateDiagnosis(finalDiagnosis, selectedCase.acceptedDiagnoses);
-      scores.differential = evaluateDifferential(differentialDiagnoses.map(d => d.value), selectedCase.evaluation?.expectedDifferentials || []);
-      scores.investigations = evaluateInvestigations(selectedInvestigations, selectedCase.evaluation || {});
-      scores.reasoning = evaluateReasoning(finalReasoning || initialReasoning, selectedCase.clinicalReasoning || {});
-      scores.history = evaluateHistory(historySectionsViewed, selectedCase.evaluation || {});
-      scores.examination = evaluateExamination(examinationsRequested, selectedCase.evaluation || {});
-
-      const overall = calculateOverallScore(scores);
-      const feedback = generateFeedback({ scores, overall, case: selectedCase });
-
-      const completed = {
-        simulationId: selectedCase.id,
-        caseTitle: selectedCase.title,
-        completedAt: Date.now(),
-        scores,
-        overall,
-        feedback,
-        studentAnswers: {
-          finalDiagnosis,
-          finalReasoning,
-          differentialDiagnoses,
-          selectedInvestigations,
-          investigationInterpretation
-        }
-      };
-
-      if (typeof addCompletedSimulation === 'function') {
-        addCompletedSimulation(completed);
-      }
-    } catch (e) {
-      // fail silently but continue
-    }
-
-    navigation.navigate('ClinicalFeedback');
+    navigation.navigate('ReviewAnswers');
   };
 
   return (
@@ -113,7 +61,7 @@ const FinalDiagnosisScreen = ({ navigation }) => {
         style={styles.multiline}
       />
 
-      <PrimaryButton title="Submit Final Diagnosis" onPress={handleSubmit} style={styles.button} />
+      <PrimaryButton title="Review All Answers" onPress={handleSubmit} style={styles.button} />
     </ScrollView>
   );
 };

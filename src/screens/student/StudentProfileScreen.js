@@ -2,14 +2,19 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 const StudentProfileScreen = ({ navigation }) => {
+  const { user, signOut } = useAuth();
+  const handleLogout = async () => {
+    await signOut();
+  };
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerCard}>
         <View style={styles.avatar}><MaterialIcons name="person" size={32} color={COLORS.primary} /></View>
         <View>
-          <Text style={styles.name}>Amina Mwangi</Text>
+          <Text style={styles.name}>{user?.full_name || 'Student'}</Text>
           <Text style={styles.subText}>Medical Student</Text>
         </View>
       </View>
@@ -17,13 +22,13 @@ const StudentProfileScreen = ({ navigation }) => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <Text style={styles.infoLabel}>Full Name</Text>
-        <Text style={styles.infoValue}>Amina Mwangi</Text>
+        <Text style={styles.infoValue}>{user?.full_name || 'Not provided'}</Text>
         <Text style={styles.infoLabel}>University</Text>
-        <Text style={styles.infoValue}>Nairobi Medical College</Text>
+        <Text style={styles.infoValue}>{user?.university || 'Not provided'}</Text>
         <Text style={styles.infoLabel}>Registration Number</Text>
-        <Text style={styles.infoValue}>MED/2024/182</Text>
+        <Text style={styles.infoValue}>{user?.registration_number || 'Not provided'}</Text>
         <Text style={styles.infoLabel}>Email</Text>
-        <Text style={styles.infoValue}>amina.mwangi@example.com</Text>
+        <Text style={styles.infoValue}>{user?.email || 'Not provided'}</Text>
         <Text style={styles.infoLabel}>Role</Text>
         <Text style={styles.infoValue}>Student</Text>
       </View>
@@ -48,7 +53,7 @@ const StudentProfileScreen = ({ navigation }) => {
         <Text style={styles.infoValue}>Contact support or access the knowledge base.</Text>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={() => navigation.navigate('Welcome')}>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>

@@ -10,7 +10,7 @@ const PatientScenarioScreen = ({ navigation }) => {
     return null;
   }
 
-  const { patient, presentation, caseStages, history, examination, investigations } = selectedCase;
+  const { patient, presentation, caseStages } = selectedCase;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -35,20 +35,8 @@ const PatientScenarioScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.historyCard}>
-        <Text style={styles.sectionTitle}>Presenting History</Text>
-        <Text style={styles.historyText}>{history.presentingIllness}</Text>
-      </View>
-
-      <View style={styles.historyCard}>
-        <Text style={styles.sectionTitle}>Examination Findings</Text>
-        <Text style={styles.historyText}>{examination.general}</Text>
-      </View>
-
-      <View style={styles.historyCard}>
-        <Text style={styles.sectionTitle}>Recommended Investigations</Text>
-        {investigations.map((test, index) => (
-          <Text key={index} style={styles.historyText}>• {test.name}</Text>
-        ))}
+        <Text style={styles.sectionTitle}>Your task</Text>
+        <Text style={styles.historyText}>Take a focused history, request appropriate examinations and investigations, then document your clinical reasoning. Case answers remain hidden until final submission.</Text>
       </View>
 
       <TouchableOpacity style={styles.continueButton} onPress={() => navigation.navigate('HistoryStage')}>

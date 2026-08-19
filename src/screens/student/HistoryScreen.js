@@ -3,31 +3,37 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, TextInput 
 import { COLORS, SIZES } from '../../constants';
 import SimulationProgress from '../../components/SimulationProgress';
 import { useSimulation } from '../../context/SimulationContext';
+import { caseApi } from '../../api/caseApi';
 
 const HistoryScreen = ({ navigation }) => {
   const { selectedCase, historySectionsViewed, setHistorySectionsViewed, conversation, addConversationEntry } = useSimulation();
   const [question, setQuestion] = useState('');
+  const [asking, setAsking] = useState(false);
 
   if (!selectedCase) return null;
 
-  const askQuestion = () => {
+  const askQuestion = async () => {
     if (!question.trim()) {
       Alert.alert('Question', 'Please type a question');
       return;
     }
-    // record student's question
+    if (asking) return;
+    setAsking(true);
     addConversationEntry({ sender: 'Student', text: question });
-    const { matchHistoryQuestion } = require('../../utils/matchingUtils');
-    const res = matchHistoryQuestion(question, selectedCase);
-    if (!res) {
-      addConversationEntry({ sender: 'Patient', text: 'Could you be more specific about what you would like to know?' });
+    try {
+      const res = await caseApi.askHistory(selectedCase.id, question.trim());
+      if (res.needs_clarification) {
+        addConversationEntry({ sender: 'Tutor', text: res.clarification_prompt || 'Could you be more specific about what you would like to know?', correctedText: res.corrected_question, originalText: question });
+      } else {
+        addConversationEntry({ sender: 'Patient', text: res.patient_response, correctedText: res.corrected_question, originalText: question });
+        if (res.matched_history_item_id) setHistorySectionsViewed(prev => prev.includes(res.matched_history_item_id) ? prev : [...prev, res.matched_history_item_id]);
+      }
       setQuestion('');
-      return;
+    } catch (_) {
+      addConversationEntry({ sender: 'Tutor', text: 'I could not reach the patient service. Your question is saved; check your connection and try again.' });
+    } finally {
+      setAsking(false);
     }
-    // reveal the matched answer and mark section viewed
-    addConversationEntry({ sender: 'Patient', text: res.answer });
-    if (res.id) setHistorySectionsViewed(prev => (prev.includes(res.id) ? prev : [...prev, res.id]));
-    setQuestion('');
   };
 
   return (
@@ -43,8 +49,8 @@ const HistoryScreen = ({ navigation }) => {
           onChangeText={setQuestion}
           style={styles.input}
         />
-        <TouchableOpacity onPress={askQuestion} style={styles.askBtn}>
-          <Text style={{ color: '#fff' }}>Ask Patient</Text>
+        <TouchableOpacity disabled={asking} onPress={askQuestion} style={[styles.askBtn, asking && { opacity: 0.6 }]}>
+          <Text style={{ color: '#fff' }}>{asking ? 'Asking…' : 'Ask Patient'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -54,6 +60,7 @@ const HistoryScreen = ({ navigation }) => {
           <View key={idx} style={[styles.card, msg.sender === 'Student' ? styles.studentMsg : styles.patientMsg]}>
             <Text style={{ fontWeight: '700', color: COLORS.text }}>{msg.sender}</Text>
             <Text style={{ color: COLORS.muted, marginTop: 6 }}>{msg.text}</Text>
+            {msg.correctedText && msg.correctedText !== msg.originalText ? <Text style={styles.guidance}>Clearer wording: {msg.correctedText}</Text> : null}
           </View>
         ))}
       </View>
@@ -90,6 +97,7 @@ const styles = StyleSheet.create({
   askBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
   studentMsg: { backgroundColor: '#E8F5FF' },
   patientMsg: { backgroundColor: '#F0FFF4' },
+  guidance: { color: COLORS.primary, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   continueButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 18,
