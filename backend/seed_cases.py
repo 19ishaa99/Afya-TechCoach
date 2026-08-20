@@ -1,22 +1,24 @@
-"""Seed all five existing mock cases without modifying the source data."""
-import json, subprocess
+"""Seed the five doctor-approved clinical cases from backend-owned JSON data."""
+import json
 from pathlib import Path
 from sqlalchemy import select
 from app.database.session import SessionLocal
 from app.models.entities import AcceptedDiagnosis, CaseContent, ClinicalCase, ClinicalReasoningPoint, ExaminationItem, HistoryItem, Investigation, TeachingPoint
 
-ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "src/constants/mockData.js"
+DATA_FILE = Path(__file__).resolve().parent / "seed_data" / "cases.json"
 
 
 def read_cases():
-    script = "const fs=require('fs'),vm=require('vm');let s=fs.readFileSync(process.argv[1],'utf8').replace(/^\\uFEFF/,'').replace(/export\\s+const\\s+scenarios\\s*=/,'globalThis.scenarios =');vm.runInThisContext(s);process.stdout.write(JSON.stringify(globalThis.scenarios));"
-    return json.loads(subprocess.check_output(["node", "-e", script, str(SOURCE)], text=True))
+    with DATA_FILE.open(encoding="utf-8") as source:
+        cases = json.load(source)
+    if not isinstance(cases, list) or len(cases) != 5:
+        count = len(cases) if isinstance(cases, list) else "non-list data"
+        raise RuntimeError(f"Expected 5 doctor-approved cases, found {count}")
+    return cases
 
 
 def seed():
     cases = read_cases()
-    if len(cases) != 5: raise RuntimeError(f"Expected 5 doctor-approved cases, found {len(cases)}")
     with SessionLocal() as db:
         for data in cases:
             if db.get(ClinicalCase, data["id"]):
