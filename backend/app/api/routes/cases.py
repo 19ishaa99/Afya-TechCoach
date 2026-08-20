@@ -62,7 +62,8 @@ def history_question(request: Request, case_id: str, payload: HistoryQuestion, d
     approved = [{"id": row.id, "accepted_questions": row.accepted_questions, "keywords": row.keywords} for row in items]
     try:
         semantic = match_patient_question(payload.question, approved)
-    except Exception:
+    except Exception as exc:
+        print("AI HISTORY MATCH ERROR:", repr(exc))
         semantic = None
     matched = next((row for row in items if semantic and row.id == semantic.matched_history_item_id), None)
     if not matched or not semantic or semantic.confidence < 45:
