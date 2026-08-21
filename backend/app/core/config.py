@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "development-only-change-me"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
-    openai_api_key: str = ""
-    openai_model: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = ""
     cors_origins: str = "http://localhost:8081"
     max_request_bytes: int = 100_000
     database_pool_size: int = 5
