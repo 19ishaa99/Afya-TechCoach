@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from unittest import result
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -127,7 +128,28 @@ def evaluate(request: Request, attempt_id: str, user: User = Depends(current_use
     try:
         result = evaluate_with_ai(case_facts, response_payload(attempt.response))
         result.doctor_verified_diagnosis = case.doctor_verified_diagnosis
-        result.doctor_approved_explanation = str(case.feedback.get("explanation", case.feedback))
+        feedback = case.feedback or {}
+
+        if isinstance(feedback, dict):
+            good = feedback.get("good", [])
+            improvement = feedback.get("improvement", [])
+            explanation = feedback.get("explanation", "")
+
+            parts = []
+
+            if explanation:
+                parts.append(str(explanation))
+
+            if good:
+                parts.append("What was done well: " + "; ".join(map(str, good)))
+
+            if improvement:
+                parts.append("Areas to improve: " + "; ".join(map(str, improvement)))
+
+            result.doctor_approved_explanation = " ".join(parts)
+        else:
+            result.doctor_approved_explanation = str(feedback)
+
         payload = result.model_dump()
         scores = result.scores.model_dump()
         evaluation = EvaluationResult(
@@ -135,7 +157,7 @@ def evaluate(request: Request, attempt_id: str, user: User = Depends(current_use
             payload=payload, scores=scores, overall_score=result.scores.overall, strengths=result.strengths,
             mistakes=result.incorrect_points, missed_points=result.missed_important_points,
             improvement_advice=result.personalized_advice, study_focus=result.study_focus,
-            safety_flags=result.unsafe_recommendations, ai_model=get_settings().openai_model,
+            safety_flags=result.unsafe_recommendations, ai_model=get_settings().gemini_model,
             prompt_version=EVALUATION_PROMPT_VERSION,
         )
         attempt.status = "completed"; attempt.overall_score = result.scores.overall
@@ -145,9 +167,14 @@ def evaluate(request: Request, attempt_id: str, user: User = Depends(current_use
             db.add(ScoreBreakdown(evaluation_result_id=evaluation.id, category=category, score=score, explanation=explanations[category]))
         db.commit()
         return payload
-    except Exception:
-        attempt.status = "evaluation_failed"; db.commit()
-        raise HTTPException(503, "Evaluation is temporarily unavailable. Your submitted answers are safe; please retry.")
+    except Exception as exc:
+        print("AI EVALUATION ERROR:", repr(exc))
+        attempt.status = "evaluation_failed"
+        db.commit()
+        raise HTTPException(
+            503,
+            "Evaluation is temporarily unavailable. Your submitted answers are safe; please retry."
+        ) from exc
 
 
 @router.get("/{attempt_id}/feedback")

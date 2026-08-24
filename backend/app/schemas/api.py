@@ -110,9 +110,21 @@ class ScoreExplanations(BaseModel):
     clinical_reasoning: str
     patient_safety: str
 
+class OriginalStudentResponse(BaseModel):
+    history_questions: list = []
+    conversation: list = []
+    examinations_requested: list = []
+    initial_diagnosis: str = ""
+    initial_reasoning: str = ""
+    differential_diagnoses: list = []
+    most_likely_diagnosis: str = ""
+    investigations_selected: list = []
+    investigation_interpretation: str = ""
+    final_diagnosis: str = ""
+    final_reasoning: str = ""
 
 class AIEvaluation(BaseModel):
-    original_response: dict
+    original_response: OriginalStudentResponse
     detected_meaning: str
     corrected_response: CorrectedResponse
     language_feedback: LanguageFeedback
