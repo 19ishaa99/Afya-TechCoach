@@ -46,11 +46,19 @@ export const SimulationProvider = ({ children }) => {
     return stamped;
   }, [backendPayload]);
 
-  const saveDraft = useCallback(async options => {
-    setSaveStatus('saving');
-    try { await persist(draftRef.current, options); setSaveStatus('saved'); return true; }
-    catch (_) { setSaveStatus('error'); return false; }
-  }, [persist]);
+ const saveDraft = useCallback(async (options = {}) => {
+  setSaveStatus('saving');
+
+  try {
+    await persist(draftRef.current, options);
+    setSaveStatus('saved');
+    return true;
+  } catch (error) {
+    console.warn('Simulation autosave failed:', error?.message || error);
+    setSaveStatus('error');
+    return false;
+  }
+}, [persist]);
 
   useEffect(() => {
     simulationStorage.load().then(saved => {

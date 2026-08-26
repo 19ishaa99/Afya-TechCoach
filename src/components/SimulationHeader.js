@@ -8,11 +8,16 @@ const labels = { saving: 'Saving…', saved: 'Saved', error: 'Unable to save —
 
 export default function SimulationHeader({ navigation, route, options }) {
   const { selectedCase, saveStatus, saveDraft } = useSimulation();
-  const goBack = async () => {
-    await saveDraft();
-    if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('StudentTabs', { screen: 'SimulationList' });
-  };
+  const goBack = () => {
+  // Save in background. Never block navigation while waiting for backend.
+  saveDraft().catch(() => {});
+
+  if (navigation.canGoBack()) {
+    navigation.goBack();
+  } else {
+    navigation.navigate('StudentTabs', { screen: 'SimulationList' });
+  }
+};
   return <View style={styles.header}>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" hitSlop={10} onPress={goBack} style={styles.back}>
       <MaterialIcons name="arrow-back" size={24} color={COLORS.navy} />

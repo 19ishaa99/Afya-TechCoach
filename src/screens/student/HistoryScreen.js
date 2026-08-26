@@ -29,8 +29,15 @@ const HistoryScreen = ({ navigation }) => {
         if (res.matched_history_item_id) setHistorySectionsViewed(prev => prev.includes(res.matched_history_item_id) ? prev : [...prev, res.matched_history_item_id]);
       }
       setQuestion('');
-    } catch (_) {
-      addConversationEntry({ sender: 'Tutor', text: 'I could not reach the patient service. Your question is saved; check your connection and try again.' });
+    } catch (error) {
+  console.warn('Ask patient failed:', error?.message || error);
+
+  addConversationEntry({
+    sender: 'Tutor',
+    text:
+      error?.message ||
+      'I could not reach the patient service. Your question is saved; check your connection and try again.'
+  });
     } finally {
       setAsking(false);
     }

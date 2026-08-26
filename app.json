@@ -12,7 +12,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "093d3430-12c2-46f0-80d0-f58cdf2be1f7"
+        "projectId": "270070c1-ef06-42fb-a963-83c26aadd195"
       }
     },
     "android": {
@@ -32,6 +32,7 @@
     "plugins": [
       "expo-font",
       "expo-splash-screen"
-    ]
+    ],
+    "owner": "meenart"
   }
 }

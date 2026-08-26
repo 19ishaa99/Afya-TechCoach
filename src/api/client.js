@@ -1,7 +1,7 @@
 import { tokenStorage } from '../storage/tokenStorage';
 
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ||'http://127.0.0.1:8000';
+  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'https://afya-techcoach.onrender.com';
   console.log('API Base URL:', API_BASE_URL);
 const DEFAULT_TIMEOUT = 15000;
 let refreshPromise = null;
