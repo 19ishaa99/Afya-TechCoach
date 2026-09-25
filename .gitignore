@@ -18,8 +18,7 @@ yarn-error.log*
 # Keep package-lock.json tracked for deterministic npm installs
 
 # secrets and local backend state
-.env
-.env.*
+
 !.env.example
 backend/.env
 *.db
