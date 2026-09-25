@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 
 from app.ai.prompts import PATIENT_PROMPT, SYSTEM_PROMPT
+from app.ai.history_matching import local_history_match
 from app.core.config import get_settings
 from app.schemas.api import AIEvaluation, PatientMatch
 from app.services.scoring import weighted_score
@@ -55,11 +56,19 @@ def evaluate_with_ai(
 
     result = response.parsed
 
+    # Gemini assesses the response, but the authoritative original is always
+    # the exact student payload supplied by the backend.
+    result.original_response = type(result.original_response).model_validate(student_response)
+
     raw = result.scores.model_dump(
         exclude={"overall"}
     )
 
     result.scores.overall = weighted_score(raw)
+    result.score_explanations.overall = (
+        f"Overall {result.scores.overall:.2f}% is the weighted result of the nine "
+        "clinical category scores; language quality is not part of this calculation."
+    )
 
     return result
 
@@ -68,6 +77,19 @@ def match_patient_question(
     question: str,
     approved_items: list[dict]
 ) -> PatientMatch:
+
+    local = local_history_match(question, approved_items)
+    if local.item_id:
+        return PatientMatch(
+            original_question=question,
+            detected_meaning=local.detected_meaning,
+            corrected_question=local.corrected_question,
+            matched_history_item_id=local.item_id,
+            confidence=local.confidence,
+            patient_response="",
+            needs_clarification=False,
+            clarification_prompt="",
+        )
 
     settings = get_settings()
 

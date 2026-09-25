@@ -33,7 +33,14 @@ export default function RegisterScreen({ navigation }) {
       setNotice({ message: 'Your account was created successfully. You can now sign in.', success: true });
       setTimeout(() => navigation.replace('Login'), 1200);
     } catch (error) {
-      setNotice({ message: error.status === 409 ? 'An account with this email already exists.' : error.status === 422 ? 'Please check the highlighted details and try again.' : 'Unable to connect to the server. Make sure the backend is running.', success: false });
+      const message = error.status === 409
+        ? 'An account with this email already exists.'
+        : error.status === 422
+          ? error.message || 'Please check the details and try again.'
+          : error.status === 0
+            ? 'Unable to reach the local server. Start the backend and confirm the API address.'
+            : error.message || 'Registration failed. Please try again.';
+      setNotice({ message, success: false });
     } finally { setLoading(false); }
   };
 

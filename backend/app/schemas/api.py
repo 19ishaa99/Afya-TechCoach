@@ -109,6 +109,7 @@ class ScoreExplanations(BaseModel):
     final_diagnosis: str
     clinical_reasoning: str
     patient_safety: str
+    overall: str
 
 class OriginalStudentResponse(BaseModel):
     history_questions: list = []
@@ -153,3 +154,7 @@ class PatientMatch(BaseModel):
     patient_response: str
     needs_clarification: bool
     clarification_prompt: str = ""
+
+    def __getitem__(self, key: str):
+        """Keep direct route-call compatibility with the endpoint's JSON mapping."""
+        return getattr(self, key)

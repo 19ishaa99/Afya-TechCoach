@@ -8,7 +8,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:frontend": "node tests/evaluation.test.cjs"
+    "test:frontend": "node tests/evaluation.test.cjs && node tests/simulation-save.test.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
@@ -18,6 +18,7 @@
     "@react-navigation/native": "^6.1.6",
     "@react-navigation/stack": "^6.3.16",
     "expo": "~50.0.0",
+    "expo-dev-client": "~3.3.12",
     "expo-font": "~11.10.3",
     "expo-secure-store": "~12.8.1",
     "expo-splash-screen": "~0.26.5",
@@ -35,5 +36,8 @@
   "volta": {
     "node": "20.10.0",
     "npm": "9.8.1"
+  },
+  "devDependencies": {
+    "@expo/ngrok": "^4.1.3"
   }
 }

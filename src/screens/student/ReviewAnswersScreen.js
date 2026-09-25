@@ -14,17 +14,16 @@ export default function ReviewAnswersScreen({ navigation, route }) {
   const simulation = useSimulation();
   const [state, setState] = useState({ loading: false, error: '' });
   const [confirming, setConfirming] = useState(false);
-  const readOnly = Boolean(route.params?.readOnly);
+  const readOnly = Boolean(route.params?.readOnly) || simulation.attemptStatus === 'completed';
   const names = simulation.selectedInvestigations.map(id => simulation.selectedCase.investigations.find(item => item.id === id)?.name || id).join(', ');
   const evaluate = async () => {
     if (state.loading) return;
     setState({ loading: true, error: '' });
-    await simulation.saveDraft();
     try {
-      await simulationApi.submit(simulation.attemptId);
-      const evaluation = await simulationApi.evaluate(simulation.attemptId);
+      await simulation.submitAttempt();
+      await simulationApi.evaluate(simulation.attemptId);
       simulation.setSimulationEndTime(Date.now());
-      navigation.replace('ClinicalFeedback', { simulationId: simulation.attemptId, evaluation });
+      navigation.replace('ClinicalFeedback', { simulationId: simulation.attemptId });
     } catch (error) {
       setState({ loading: false, error: error.message || 'Evaluation is temporarily unavailable. Your submitted answers are safe.' });
     }

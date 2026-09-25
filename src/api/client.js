@@ -1,9 +1,8 @@
 import { tokenStorage } from '../storage/tokenStorage';
 
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'https://afya-techcoach.onrender.com';
-  console.log('API Base URL:', API_BASE_URL);
-const DEFAULT_TIMEOUT = 15000;
+  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:8000';
+const DEFAULT_TIMEOUT = 60000;
 let refreshPromise = null;
 
 export class ApiError extends Error {
@@ -57,7 +56,10 @@ export async function apiRequest(path, options = {}) {
           await tokenStorage.clear();
         }
       }
-      throw new ApiError(body.detail || 'The server could not complete this request.', response.status, response.status >= 500 || response.status === 408);
+      const detail = Array.isArray(body.detail)
+        ? body.detail.map(item => item.msg).filter(Boolean).join(' ')
+        : body.detail;
+      throw new ApiError(detail || 'The server could not complete this request.', response.status, response.status >= 500 || response.status === 408);
     }
     return body;
   } catch (error) {

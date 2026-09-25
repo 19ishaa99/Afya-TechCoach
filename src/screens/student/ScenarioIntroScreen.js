@@ -17,8 +17,8 @@ const StartSimulationScreen = ({ route, navigation }) => {
     try {
       const attempt = await startCase(scenario);
       navigation.navigate('PatientScenario', { simulationId: attempt.id });
-    } catch (_) {
-      setError('Unable to start this simulation. Check your connection and sign-in, then try again.');
+    } catch (requestError) {
+      setError(requestError?.message || 'Unable to start this simulation. Check your connection and sign-in, then try again.');
     } finally { setLoading(false); }
   };
 

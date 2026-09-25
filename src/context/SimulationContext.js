@@ -8,7 +8,7 @@ const SimulationContext = createContext(null);
 const initialDifferential = () => [{ id: 1, value: '' }, { id: 2, value: '' }];
 
 const emptyDraft = {
-  attemptId: null, selectedCase: null, currentStep: 'ScenarioIntro', historySectionsViewed: [],
+  attemptId: null, attemptStatus: 'in_progress', selectedCase: null, currentStep: 'ScenarioIntro', historySectionsViewed: [],
   examinationsRequested: [], conversation: [], initialDiagnosis: '', initialReasoning: '',
   differentialDiagnoses: initialDifferential(), mostLikelyDiagnosis: '', selectedInvestigations: [],
   investigationInterpretation: '', finalDiagnosis: '', finalReasoning: '', simulationStartTime: null,
@@ -21,6 +21,8 @@ export const SimulationProvider = ({ children }) => {
   const [saveStatus, setSaveStatus] = useState('saved');
   const draftRef = useRef(draft);
   const saveTimer = useRef(null);
+  const saveQueue = useRef(Promise.resolve());
+  const submitting = useRef(false);
   useEffect(() => { draftRef.current = draft; }, [draft]);
 
   const backendPayload = useCallback(value => ({
@@ -30,7 +32,7 @@ export const SimulationProvider = ({ children }) => {
     conversation: value.conversation,
     initial_diagnosis: value.initialDiagnosis,
     initial_reasoning: value.initialReasoning,
-    differential_diagnoses: value.differentialDiagnoses.map(item => item.value || item).filter(Boolean),
+    differential_diagnoses: value.differentialDiagnoses.map(item => typeof item === 'string' ? item : item.value).filter(Boolean),
     most_likely_diagnosis: value.mostLikelyDiagnosis,
     investigations_selected: value.selectedInvestigations,
     investigation_interpretation: value.investigationInterpretation,
@@ -42,11 +44,17 @@ export const SimulationProvider = ({ children }) => {
     const stamped = { ...value, draftUpdatedAt: new Date().toISOString() };
     draftRef.current = stamped;
     await simulationStorage.save(stamped);
-    if (remote && stamped.attemptId) await simulationApi.save(stamped.attemptId, backendPayload(stamped));
+    if (remote && stamped.attemptId && stamped.attemptStatus === 'in_progress') {
+      const request = saveQueue.current.catch(() => {}).then(() => simulationApi.save(stamped.attemptId, backendPayload(stamped)));
+      saveQueue.current = request;
+      await request;
+    }
     return stamped;
   }, [backendPayload]);
 
  const saveDraft = useCallback(async (options = {}) => {
+  clearTimeout(saveTimer.current);
+  if (submitting.current) return false;
   setSaveStatus('saving');
 
   try {
@@ -61,17 +69,20 @@ export const SimulationProvider = ({ children }) => {
 }, [persist]);
 
   useEffect(() => {
-    simulationStorage.load().then(saved => {
+    simulationStorage.load().then(async saved => {
       if (saved?.selectedCase?.id) {
         const currentCase = scenarios.find(item => item.id === saved.selectedCase.id);
-        if (currentCase) setDraft({ ...emptyDraft, ...saved, selectedCase: currentCase });
+        if (currentCase) {
+          const state = saved.attemptId ? await simulationApi.get(saved.attemptId) : null;
+          setDraft({ ...emptyDraft, ...saved, attemptStatus: state?.status || 'in_progress', selectedCase: currentCase });
+        }
         else simulationStorage.clear();
       }
-    }).finally(() => setIsRestoringSimulation(false));
+    }).catch(error => console.warn('Simulation restoration failed:', error.message)).finally(() => setIsRestoringSimulation(false));
   }, []);
 
   useEffect(() => {
-    if (isRestoringSimulation || !draft.selectedCase) return undefined;
+    if (isRestoringSimulation || !draft.selectedCase || submitting.current) return undefined;
     setSaveStatus('saving');
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => saveDraft(), 700);
@@ -100,7 +111,7 @@ export const SimulationProvider = ({ children }) => {
     if (!clinicalCase) throw new Error('The saved clinical case is no longer available.');
     const response = state.response || {};
     const next = {
-      ...emptyDraft, attemptId, selectedCase: clinicalCase, currentStep: state.current_step || 'PatientScenario',
+      ...emptyDraft, attemptId, attemptStatus: state.status, selectedCase: clinicalCase, currentStep: state.current_step || 'PatientScenario',
       historySectionsViewed: response.history_questions || [], examinationsRequested: response.examinations_requested || [],
       conversation: response.conversation || [], initialDiagnosis: response.initial_diagnosis || '', initialReasoning: response.initial_reasoning || '',
       differentialDiagnoses: (response.differential_diagnoses || []).map((value, index) => ({ id: index + 1, value })),
@@ -111,11 +122,33 @@ export const SimulationProvider = ({ children }) => {
     setDraft(next); await persist(next, { remote: false }); return next;
   }, [persist]);
 
+  const submitAttempt = useCallback(async () => {
+    if (submitting.current) throw new Error('Submission is already in progress.');
+    submitting.current = true;
+    clearTimeout(saveTimer.current);
+    try {
+      setSaveStatus('saving');
+      await persist(draftRef.current);
+      const result = await simulationApi.submit(draftRef.current.attemptId);
+      const next = { ...draftRef.current, attemptStatus: result.status };
+      draftRef.current = next;
+      setDraft(next);
+      setSaveStatus('saved');
+      await persist(next, { remote: false });
+      return result;
+    } catch (error) {
+      setSaveStatus('error');
+      throw error;
+    } finally {
+      submitting.current = false;
+    }
+  }, [persist]);
+
   const resetSimulation = useCallback(async () => { setDraft(emptyDraft); draftRef.current = emptyDraft; await simulationStorage.clear(); }, []);
   const addConversationEntry = useCallback(entry => setDraft(current => ({ ...current, conversation: [...current.conversation, { ...entry, time: Date.now() }] })), []);
 
   const value = useMemo(() => ({
-    ...draft, isRestoringSimulation, saveStatus, saveDraft, startCase, resumeAttempt,
+    ...draft, isRestoringSimulation, saveStatus, saveDraft, submitAttempt, startCase, resumeAttempt,
     resetSimulation, addConversationEntry, setCurrentStep: setter('currentStep'),
     setSelectedCase: setter('selectedCase'), setHistorySectionsViewed: setter('historySectionsViewed'),
     setExaminationsRequested: setter('examinationsRequested'), setInitialDiagnosis: setter('initialDiagnosis'),
@@ -124,7 +157,7 @@ export const SimulationProvider = ({ children }) => {
     setInvestigationInterpretation: setter('investigationInterpretation'), setFinalDiagnosis: setter('finalDiagnosis'),
     setFinalReasoning: setter('finalReasoning'), setSimulationStartTime: setter('simulationStartTime'),
     setSimulationEndTime: setter('simulationEndTime'), patchDraft: patch
-  }), [draft, isRestoringSimulation, saveStatus, saveDraft, startCase, resumeAttempt, resetSimulation, addConversationEntry, patch]);
+  }), [draft, isRestoringSimulation, saveStatus, saveDraft, submitAttempt, startCase, resumeAttempt, resetSimulation, addConversationEntry, patch]);
 
   return <SimulationContext.Provider value={value}>{children}</SimulationContext.Provider>;
 };

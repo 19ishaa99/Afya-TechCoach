@@ -12,7 +12,7 @@ settings = get_settings()
 
 
 def _normalize_database_url(url: str) -> str:
-    # Render provides PostgreSQL URLs as postgresql://...
+    # Some PostgreSQL providers use URLs without an explicit driver.
     # This project uses Psycopg 3, so tell SQLAlchemy to use it.
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+psycopg://", 1)

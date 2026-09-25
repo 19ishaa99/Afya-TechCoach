@@ -1,9 +1,9 @@
-import re
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from app.ai.safety import REFUSAL, requests_hidden_answer
 from app.ai.evaluator import match_patient_question
+from app.ai.history_matching import normalize_tokens
 from app.api.deps import current_user
 from app.database.session import get_db
 from app.models.entities import ClinicalCase, ExaminationItem, HistoryItem, Investigation, User
@@ -20,7 +20,7 @@ def get_case(case_id: str, db: Session) -> ClinicalCase:
 
 
 def tokens(text: str) -> set[str]:
-    return set(re.findall(r"[a-z0-9]+", text.lower())) - {"the", "a", "an", "patient", "please", "tell", "me", "about"}
+    return normalize_tokens(text)
 
 
 @router.get("")
@@ -52,14 +52,8 @@ def history_question(request: Request, case_id: str, payload: HistoryQuestion, d
     get_case(case_id, db)
     if requests_hidden_answer(payload.question):
         return {"original_question": payload.question, "detected_meaning": "Request for hidden case information", "corrected_question": payload.question, "matched_history_item_id": None, "confidence": 100, "patient_response": REFUSAL, "needs_clarification": False, "clarification_prompt": ""}
-    question_tokens = tokens(payload.question)
     items = db.scalars(select(HistoryItem).where(HistoryItem.case_id == case_id)).all()
-    scored = [(len(question_tokens & (tokens(" ".join(i.accepted_questions)) | set(i.keywords))), i) for i in items]
-    score, item = max(scored, default=(0, None), key=lambda value: value[0])
-    confidence = min(100, score * 25)
-    if item and confidence >= 50:
-        return {"original_question": payload.question, "detected_meaning": item.section, "corrected_question": item.accepted_questions[0] if item.accepted_questions else payload.question, "matched_history_item_id": item.id, "confidence": confidence, "patient_response": item.patient_answer, "needs_clarification": False, "clarification_prompt": ""}
-    approved = [{"id": row.id, "accepted_questions": row.accepted_questions, "keywords": row.keywords} for row in items]
+    approved = [{"id": row.id, "section": row.section, "accepted_questions": row.accepted_questions, "keywords": row.keywords} for row in items]
     try:
         semantic = match_patient_question(payload.question, approved)
     except Exception as exc:

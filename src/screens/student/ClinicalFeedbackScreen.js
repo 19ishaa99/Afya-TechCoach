@@ -6,13 +6,13 @@ import { useSimulation } from '../../context/SimulationContext';
 import { simulationApi } from '../../api/simulationApi';
 
 const labels = { history_taking: 'History taking', physical_examination: 'Physical examination', initial_diagnosis: 'Initial diagnosis', differential_diagnosis: 'Differential diagnosis', investigation_selection: 'Investigation selection', investigation_interpretation: 'Investigation interpretation', final_diagnosis: 'Final diagnosis', clinical_reasoning: 'Clinical reasoning', patient_safety: 'Patient safety' };
-const ListCard = ({ title, items = [], tone = 'neutral' }) => <View style={[styles.card, styles[`${tone}Card`]]}><Text style={styles.cardTitle}>{title}</Text>{items.length ? items.map((item, index) => <Text key={index} style={styles.item}>• {item}</Text>) : <Text style={styles.empty}>No items identified.</Text>}</View>;
+const ListCard = ({ title, items = [], tone = 'neutral', emptyText = 'No items identified.' }) => <View style={[styles.card, styles[`${tone}Card`]]}><Text style={styles.cardTitle}>{title}</Text>{items.length ? items.map((item, index) => <Text key={index} style={styles.item}>• {item}</Text>) : <Text style={styles.empty}>{emptyText}</Text>}</View>;
 const Correction = ({ data = {} }) => <View style={styles.card}><Text style={styles.cardTitle}>Corrected medical wording</Text>{Object.entries(data).map(([key, value]) => <View key={key} style={styles.correction}><Text style={styles.smallLabel}>{key.replaceAll('_', ' ')}</Text><Text style={styles.item}>{Array.isArray(value) ? value.join(', ') || 'Not provided' : value || 'Not provided'}</Text></View>)}</View>;
 
 export default function ClinicalFeedbackScreen({ route, navigation }) {
   const { attemptId, resetSimulation } = useSimulation();
   const id = route.params?.simulationId || attemptId;
-  const [evaluation, setEvaluation] = useState(route.params?.evaluation || null);
+  const [evaluation, setEvaluation] = useState(typeof route.params?.evaluation === 'object' ? route.params.evaluation : null);
   const [error, setError] = useState('');
   useEffect(() => { if (!evaluation && id) simulationApi.feedback(id).then(setEvaluation).catch(err => setError(err.message)); }, [id, evaluation]);
   if (error) return <View style={styles.center}><Text style={styles.error}>{error}</Text><TouchableOpacity style={styles.action} onPress={() => { setError(''); simulationApi.feedback(id).then(setEvaluation).catch(err => setError(err.message)); }}><Text style={styles.actionText}>Retry</Text></TouchableOpacity></View>;
@@ -23,17 +23,17 @@ export default function ClinicalFeedbackScreen({ route, navigation }) {
   return <ScrollView style={styles.container} contentContainerStyle={styles.content}>
     <Text style={styles.title}>Your answer, clarified</Text><Text style={styles.detected}>{evaluation.detected_meaning}</Text>
     <Correction data={evaluation.corrected_response} />
-    <View style={styles.scoreCard}><View style={styles.ring}><Text style={styles.score}>{Math.round(scores.overall || 0)}%</Text><Text style={styles.scoreLabel}>Overall</Text></View><Text style={styles.scoreCopy}>Clinical scores are calculated separately from language quality.</Text></View>
+    <View style={styles.scoreCard}><View style={styles.ring}><Text style={styles.score}>{Math.round(scores.overall || 0)}%</Text><Text style={styles.scoreLabel}>Overall</Text></View><Text style={styles.scoreCopy}>{evaluation.score_explanations?.overall || 'Clinical scores are calculated separately from language quality.'}</Text></View>
     <View style={styles.card}><Text style={styles.cardTitle}>Category percentages</Text>{Object.entries(labels).map(([key, label]) => <View key={key} style={styles.metric}><View style={styles.metricRow}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricScore}>{Math.round(scores[key] || 0)}%</Text></View><View style={styles.track}><View style={[styles.fill, { width: `${Math.max(0, Math.min(100, scores[key] || 0))}%` }]} /></View><Text style={styles.explanation}>{evaluation.score_explanations?.[key]}</Text></View>)}</View>
     <ListCard title="Language feedback — strengths" items={evaluation.language_feedback?.strengths} tone="success" />
     <ListCard title="Language corrections" items={evaluation.language_feedback?.corrections} />
     <ListCard title="Clearer medical wording" items={evaluation.language_feedback?.clearer_medical_wording} />
     <ListCard title="What you did well" items={evaluation.strengths} tone="success" />
     <ListCard title="What was partially correct" items={evaluation.partially_correct_points} tone="warning" />
-    <ListCard title="What was incorrect" items={evaluation.incorrect_points} tone="error" />
-    <ListCard title="Important points you missed" items={evaluation.missed_important_points} tone="warning" />
-    <ListCard title="Patient-safety concerns" items={evaluation.unsafe_recommendations} tone="error" />
-    <View style={styles.card}><Text style={styles.cardTitle}>Doctor-verified diagnosis</Text><Text style={styles.diagnosis}>{evaluation.doctor_verified_diagnosis}</Text><Text style={styles.item}>{evaluation.doctor_approved_explanation}</Text></View>
+    <ListCard title="What was incorrect" items={evaluation.incorrect_points} tone="error" emptyText="No incorrect clinical points were identified." />
+    <ListCard title="Important points you missed" items={evaluation.missed_important_points} tone="warning" emptyText="You covered the important approved points for this case." />
+    <ListCard title="Patient-safety concerns" items={evaluation.unsafe_recommendations} tone="error" emptyText="No patient-safety concerns were identified." />
+    <View style={styles.card}><Text style={styles.cardTitle}>Doctor-verified diagnosis</Text><Text style={styles.diagnosis}>{evaluation.doctor_verified_diagnosis}</Text><Text style={styles.smallLabel}>Why this diagnosis fits the case</Text><Text style={styles.item}>{evaluation.doctor_approved_explanation}</Text></View>
     <ListCard title="Clinical learning points" items={evaluation.clinical_learning_points} />
     <ListCard title="Areas to focus on" items={evaluation.study_focus} />
     <View style={styles.card}><Text style={styles.cardTitle}>Personalized advice</Text><Text style={styles.item}>{evaluation.personalized_advice}</Text></View>
